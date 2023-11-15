@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 ###############################################################################
 
 # Function: Fuzzy DEMATEL
+# When multiple respondents are involved, the average values of the left, middle, and right evaluations are computed, forming a new matrix that needs to be provided.
 def fuzzy_dematel_method(dataset, size_x = 10, size_y = 10):  
     X_a = np.zeros((len(dataset), len(dataset)))
     X_b = np.zeros((len(dataset), len(dataset)))
@@ -24,20 +25,47 @@ def fuzzy_dematel_method(dataset, size_x = 10, size_y = 10):
                 m_a[i,j] = a
             if (c > m_c[i,j]):
                 m_c[i,j] = c
-    m_a       = np.min(m_a, axis = 1)
-    m_c       = np.max(m_c, axis = 1)
-    X_a       = (X_a - m_a) / (m_c - m_a)
-    X_b       = (X_b - m_a) / (m_c - m_a)
-    X_c       = (X_c - m_a) / (m_c - m_a)
-    L         = X_b / (1 + X_b - X_a)
-    R         = X_c / (1 + X_c - X_b)
-    W         = (L * (1 - L) + R * R) / (1 - L + R)
-    Z         = m_a  + W * (m_c - m_a)
-    X         = Z/np.max(np.sum(Z, axis = 1))
-    Y         = np.linalg.inv(np.identity(X.shape[0]) - X) 
-    T         = np.matmul(X, Y)
-    D         = np.sum(T, axis = 1)
-    R         = np.sum(T, axis = 0)
+    # Initial direct relation fuzzy matrix
+    max_value = max(np.max(np.sum(X_a, axis=1)),np.max(np.sum(X_a, axis=0)),np.max(np.sum(X_b, axis=1)),np.max(np.sum(X_b, axis=0)),np.max(np.sum(X_c, axis=1)),np.max(np.sum(X_c, axis=0)))
+    X_a = X_a / max_value
+    X_b = X_b / max_value
+    X_c = X_c / max_value
+
+    # The fuzzy total-relation matrix
+    X_a_1 = np.linalg.inv(np.identity(X_a.shape[0]) - X_a)
+    X_b_1 = np.linalg.inv(np.identity(X_b.shape[0]) - X_b)
+    X_c_1 = np.linalg.inv(np.identity(X_c.shape[0]) - X_c)
+
+    T1 = np.matmul(X_a, X_a_1)
+    T2 = np.matmul(X_b, X_b_1)
+    T3 = np.matmul(X_c, X_c_1)
+
+    # The normalized fuzzy direct-relation matrix
+
+    # CFCS (Converting Fuzzy data into Crisp Scores) method
+    m_a = np.min(T1)
+    m_c = np.max(T3)
+    delta = m_c - m_a
+
+    # Normalization
+    xl_ijk = (T1 - m_a)/ delta
+    xm_ijk = (T2 - m_a) / delta
+    xr_ijk = (T3 - m_a) / delta
+
+    # Compute left (ls) and right (rs) normalized value
+    xls_ijk = xm_ijk / (1 + xm_ijk - xl_ijk)
+    xrs_ijk = xr_ijk / (1 + xr_ijk - xm_ijk)
+
+    # The crisp total-relation matrix
+    # Compute the total normalized crisp value
+    x_ijk = ((xls_ijk * (1 - xls_ijk) + xrs_ijk * xrs_ijk)) / (1 - xls_ijk + xrs_ijk)
+
+    # Compute crisp values
+    Z = m_a + x_ijk * delta
+
+    # Crisp values
+    D = np.sum(Z, axis=1)
+    R = np.sum(Z, axis=0)
     D_plus_R  = D + R
     D_minus_R = D - R 
     weights   = (D_plus_R - D_minus_R)/(np.sum(D_plus_R + D_minus_R))
